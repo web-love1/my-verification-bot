@@ -127,7 +127,7 @@ const client = new Client({
 });
 
 // ใส่ URL จาก Google Apps Script ที่คุณทำในขั้นตอนที่แล้ว
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby6-JRvGScleMg18XkwEw_X5E2GCUQb2_Z4y1si7eCfl_xAK8wubyWfVuRGTbdK-kB6KA/exec"; 
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby1ZVINvZlvm001GzN4ha5Lz2rUpiX5vGY2Zv7NbfhS4VS_6KpHCYJQUzTnor2euQQ5VA/exec"; 
 const BASE_ROLE_ID = "1428804583471448264";
 const GAME_ID = "01152026_1";
 
@@ -273,6 +273,7 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.login(config.token);
+
 
 
 
