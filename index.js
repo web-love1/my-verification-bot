@@ -1,10 +1,13 @@
-const { Client, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+const { 
+    Client, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, 
+    EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, 
+    StringSelectMenuBuilder, ChannelType, PermissionFlagsBits 
+} = require('discord.js');
 const axios = require('axios');
 const express = require('express');
 
-// --- ระบบทำให้บอทออนไลน์ตลอดเวลา (Keep Alive) ---
 const app = express();
-app.get('/', (req, res) => res.send('System is Online!'));
+app.get('/', (req, res) => res.send('Bot is Live!'));
 app.listen(process.env.PORT || 8080);
 
 const client = new Client({ 
@@ -16,102 +19,97 @@ const client = new Client({
     ] 
 });
 
-// ดึงไอดีจาก Environment Variable ใน Render
-const SPREADSHEET_ID = process.env.SPREADSHEET_ID; 
+// --- [ ส่วนที่ 1: ตั้งค่าไอดีต่างๆ ] ---
+const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+const STAFF_ROLE_ID = '1445029891329490944'; // [!] แก้ไข: ไอดี Role ที่จะให้เห็นห้องตั๋ว
+const TICKET_CATEGORY_ID = '1472558951747817594'; // [!] แก้ไข: ไอดี Category ที่จะให้ห้องตั๋วไปอยู่
+const GUILD_ID = '1343792416011980913'; // 3. ใส่ไอดีเซิร์ฟเวอร์ของคุณ (เพื่อให้คำสั่ง / ขึ้นไวขึ้น)
 
-client.once('ready', () => {
-    console.log(`✅ บอทออนไลน์แล้วในชื่อ: ${client.user.tag}`);
+client.once('ready', async () => {
+    console.log(`✅ บอทออนไลน์: ${client.user.tag}`);
+    
+    // ลงทะเบียน Slash Command
+    const commands = [
+        {
+            name: 'setup-ticket',
+            description: 'ตั้งค่าข้อความสำหรับเปิด Ticket',
+        },
+        {
+            name: 'setup-verify',
+            description: 'ตั้งค่าข้อความยืนยันตัวตน',
+        }
+    ];
+    
+    await client.application.commands.set(commands);
 });
 
-// --- คำสั่งสร้างปุ่มยืนยันตัวตน ---
-client.on('messageCreate', async (message) => {
-    if (message.content === '!setup' && message.member.permissions.has('Administrator')) {
-        const embed = new EmbedBuilder()
-            .setTitle('🛡️ ยืนยันตัวตนเข้าเซิร์ฟเวอร์')
-            .setDescription('กรุณากดปุ่มด้านล่างเพื่อกรอกชื่อและรหัสยืนยันจากในแมพ')
-            .setColor('#4285F4');
-        
-        const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId('v_start')
-                .setLabel('เริ่มยืนยันตัวตน')
-                .setStyle(ButtonStyle.Primary)
-        );
-
-        await message.channel.send({ embeds: [embed], components: [row] });
-    }
-});
-
-// --- ระบบโต้ตอบ (ปุ่ม และ หน้าต่างกรอกข้อมูล) ---
+// --- [ ส่วนที่ 2: ระบบจัดการ Interaction (ปุ่ม/เมนู/Modal) ] ---
 client.on('interactionCreate', async (interaction) => {
-    // 1. เมื่อกดปุ่ม "เริ่มยืนยันตัวตน"
-    if (interaction.isButton() && interaction.customId === 'v_start') {
-        const modal = new ModalBuilder()
-            .setCustomId('v_modal')
-            .setTitle('ยืนยันตัวตนด้วยข้อมูลในแมพ');
 
-        const nameInput = new TextInputBuilder()
-            .setCustomId('v_name')
-            .setLabel("ชื่อในเกม (Roblox Name)")
-            .setPlaceholder("พิมพ์ชื่อของคุณให้ตรงกับในตาราง")
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
+    // 1. คำสั่งสร้างระบบ Ticket
+    if (interaction.commandName === 'setup-ticket') {
+        const embed = new EmbedBuilder()
+            .setTitle('🎫 ศูนย์ช่วยเหลือ (Support Ticket)')
+            .setDescription('เลือกหัวข้อที่ต้องการแจ้งเรื่องด้านล่าง ทีมงานจะรีบตอบกลับครับ')
+            .setColor('#5865F2');
 
-        const codeInput = new TextInputBuilder()
-            .setCustomId('v_code')
-            .setLabel("รหัส 6 หลัก")
-            .setPlaceholder("ตัวอย่าง: 123456")
-            .setMinLength(6)
-            .setMaxLength(6)
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
+        const menu = new StringSelectMenuBuilder()
+            .setCustomId('ticket_select')
+            .setPlaceholder('เลือกหัวข้อที่ต้องการจะติดต่อ')
+            .addOptions([
+                { label: 'แจ้งปัญหา/บัค', value: 'bug', emoji: '🐛' },
+                { label: 'ติดต่อสอบถาม', value: 'support', emoji: '💬' },
+                { label: 'ติดต่อส่งเอกสาร', value: 'billing', emoji: '📃' },
+            ]);
 
-        const firstRow = new ActionRowBuilder().addComponents(nameInput);
-        const secondRow = new ActionRowBuilder().addComponents(codeInput);
-
-        modal.addComponents(firstRow, secondRow);
-        await interaction.showModal(modal);
+        await interaction.reply({ embeds: [embed], components: [new ActionRowBuilder().addComponents(menu)] });
     }
 
-    // 2. เมื่อกรอกข้อมูลใน Modal เสร็จแล้วกดส่ง
-    if (interaction.isModalSubmit() && interaction.customId === 'v_modal') {
+    // 2. เมื่อคนกดเลือกหัวข้อ Ticket
+    if (interaction.isStringSelectMenu() && interaction.customId === 'ticket_select') {
         await interaction.deferReply({ ephemeral: true });
 
-        const inputName = interaction.fields.getTextInputValue('v_name').trim();
-        const inputCode = interaction.fields.getTextInputValue('v_code').trim();
+        const channel = await interaction.guild.channels.create({
+            name: `ticket-${interaction.user.username}`,
+            type: ChannelType.GuildText,
+            parent: TICKET_CATEGORY_ID,
+            permissionOverwrites: [
+                { id: interaction.guild.id, deny: [PermissionFlagsBits.ViewChannel] },
+                { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
+                { id: STAFF_ROLE_ID, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
+            ],
+        });
 
-        try {
-            // ดึงข้อมูลจาก Google Sheets (Export เป็น CSV)
-            const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv`;
-            const response = await axios.get(url);
-            
-            // แยกข้อมูลออกมาเป็นแถวและคอลัมน์
-            const rows = response.data.split('\n').map(row => row.split(','));
+        const ticketEmbed = new EmbedBuilder()
+            .setTitle(`🎫 ตั๋วสำหรับ: ${interaction.values[0]}`)
+            .setDescription(`สวัสดีครับ ${interaction.user} กรุณาพิมพ์รายละเอียดทิ้งไว้\nทีมงาน <@&${STAFF_ROLE_ID}> จะรีบมาช่วยเหลือครับ`)
+            .setColor('#2ecc71');
 
-            // ค้นหาข้อมูล: 
-            // row[0] คือ คอลัมน์ A (ชื่อ)
-            // row[2] คือ คอลัมน์ C (รหัส)
-            const userData = rows.find(row => 
-                row[0]?.trim() === inputName && 
-                row[2]?.trim() === inputCode
-            );
+        const closeBtn = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('close_ticket').setLabel('Close Ticket').setStyle(ButtonStyle.Danger)
+        );
 
-            if (userData) {
-                // ถ้าข้อมูลถูกต้อง
-                await interaction.member.setNickname(inputName).catch(() => console.log("เปลี่ยนชื่อไม่ได้ (อาจเพราะยศบอทต่ำกว่า)"));
-                
-                // แจ้งผลสำเร็จ
-                await interaction.editReply(`✅ **ยืนยันตัวตนสำเร็จ!**\nยินดีต้อนรับคุณ **${inputName}** เข้าสู่เซิร์ฟเวอร์ครับ`);
-            } else {
-                // ถ้าข้อมูลไม่ตรง
-                await interaction.editReply(`❌ **ไม่สำเร็จ!** ไม่พบชื่อ **${inputName}** ที่ใช้รหัส **${inputCode}** ในระบบ\nกรุณาตรวจสอบชื่อและรหัสอีกครั้ง (ต้องพิมพ์ตัวใหญ่-เล็กให้ตรงกันเป๊ะ)`);
-            }
-
-        } catch (error) {
-            console.error("Error fetching sheet:", error);
-            await interaction.editReply("❌ **ระบบขัดข้อง!** บอทเข้าถึงข้อมูลใน Sheets ไม่ได้ (กรุณาเช็คว่าตั้งค่าแชร์เป็นสาธารณะหรือยัง)");
-        }
+        await channel.send({ embeds: [ticketEmbed], components: [closeBtn] });
+        await interaction.editReply(`สร้างช่องตั๋วแล้วที่ ${channel}`);
     }
+
+    // 3. ปุ่มปิด Ticket
+    if (interaction.isButton() && interaction.customId === 'close_ticket') {
+        await interaction.reply('กำลังปิดห้องนี้ใน 5 วินาที...');
+        setTimeout(() => interaction.channel.delete(), 5000);
+    }
+
+    // 4. คำสั่งสร้างระบบยืนยันตัวตน (Google Sheets)
+    if (interaction.commandName === 'setup-verify') {
+        const embed = new EmbedBuilder()
+            .setTitle('🛡️ ยืนยันตัวตน (Verify)')
+            .setDescription('กดปุ่มด้านล่างเพื่อยืนยันตัวตนด้วยรหัสจากในเกม')
+            .setColor('#2ecc71');
+        const btn = new ButtonBuilder().setCustomId('v_start').setLabel('เริ่มยืนยัน').setStyle(ButtonStyle.Success);
+        await interaction.reply({ embeds: [embed], components: [new ActionRowBuilder().addComponents(btn)] });
+    }
+
+    // [!] ระบบ Verification (v_start และ v_modal) ให้ใช้โค้ดเดิมที่คุณมีต่อท้ายตรงนี้ได้เลยครับ
 });
 
 client.login(process.env.TOKEN);
