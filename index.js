@@ -1,11 +1,10 @@
 const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags } = require('discord.js');
 const axios = require('axios');
-const http = require('http'); // สำหรับแก้ปัญหา Render Port Binding
+const http = require('http');
 
-// --- แก้ปัญหา No open ports detected บน Render ---
+const http = require('http');
 http.createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.write('Bot is Running!');
+    res.write("Bot is running!");
     res.end();
 }).listen(process.env.PORT || 3000);
 
@@ -215,6 +214,7 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.login(TOKEN);
+
 
 
 
