@@ -179,41 +179,48 @@ client.on('interactionCreate', async (interaction) => {
                     }
                 }
 
-                    // --- [C] ให้ยศเริ่มต้น ---
-                    const vRole = interaction.guild.roles.cache.get(config.EVERYONE_VERIFIED_ROLE);
-                    if (vRole) {
-                        await member.roles.add(vRole).catch(e => console.log("ให้ยศเริ่มต้นไม่ได้:", e.message));
-                        addedRoles.push(`<@&${config.EVERYONE_VERIFIED_ROLE}>`);
+                    // 4. ให้ยศพื้นฐานสำหรับทุกคนที่ยืนยันผ่าน
+                    const everyoneRoleId = "1428804583471448264";
+                    const eRole = interaction.guild.roles.cache.get(everyoneRoleId);
+                    if (eRole) {
+                        await member.roles.add(eRole).catch(() => {});
+                        addedRoles.push(`<@&${everyoneRoleId}>`);
                     }
 
-                    // --- ส่ง LOG ไปยังห้องที่กำหนด ---
+                    // 5. ระบบส่ง LOG ไปยังช่องแจ้งเตือน
                     const logChannel = client.channels.cache.get(LOG_CHANNEL_ID);
                     if (logChannel) {
                         const logEmbed = new EmbedBuilder()
-                            .setTitle('🔄 อัพเดทยศ')
+                            .setTitle('🔄 บันทึกการอัพเดทยศ')
                             .setColor("#3498db")
                             .addFields(
-                                { name: '👤 สมาชิก', value: `<@${member.id}>`, inline: false },
-                                { name: '📊 Rank', value: mainGroup ? mainGroup.role.name : 'ไม่พบกลุ่ม', inline: true },
-                                { name: '🟢 Role ที่เพิ่ม', value: addedRoles.join(', ') || 'ไม่มี', inline: false },
-                                { name: '🏰 Server', value: interaction.guild.name, inline: false }
+                                { name: '👤 สมาชิก', value: `<@${member.id}> (${robloxName})`, inline: false },
+                                { name: '📊 Rank กลุ่มหลัก', value: mainGroup ? mainGroup.role.name : 'ไม่พบข้อมูล', inline: true },
+                                { name: '🟢 Role ที่เพิ่มทั้งหมด', value: addedRoles.join(', ') || 'ไม่มี', inline: false },
+                                { name: '🏰 Server', value: interaction.guild.name, inline: true }
                             )
                             .setTimestamp();
+
                         await logChannel.send({ embeds: [logEmbed] }).catch(() => {});
                     }
                 }
-                await interaction.editReply(`✅ ยืนยันสำเร็จ: **${robloxName}**`);
-
-                await interaction.editReply('❌ รหัสไม่ถูกต้อง');
-            
+                
+                await interaction.editReply(`✅ ยืนยันตัวตนสำเร็จ: **${robloxName}**`);
+                
+            } else {
+                await interaction.editReply('❌ รหัสยืนยันไม่ถูกต้อง');
+            }
         } catch (error) {
             console.error(error);
-            await interaction.editReply('❌ เกิดข้อผิดพลาดในระบบ');
+            if (!interaction.replied) {
+                await interaction.editReply('❌ เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่');
+            }
         }
     }
-});
+}); // ปิด interactionCreate
 
 client.login(TOKEN);
+
 
 
 
