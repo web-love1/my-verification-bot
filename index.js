@@ -9,6 +9,10 @@ http.createServer((req, res) => {
 }).listen(process.env.PORT || 3000);
 
 const client = new Client({
+    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMembers]
+});
+
+const client = new Client({
     intents: [
         GatewayIntentBits.Guilds, 
         GatewayIntentBits.GuildMessages, 
@@ -18,10 +22,11 @@ const client = new Client({
 });
 
 // --- CONFIGURATION ---
-const TOKEN = process.env.TOKEN; 
+const TOKEN = process.env.TOKEN;
 const GAS_URL = process.env.GAS_URL;
 const LOG_CHANNEL_ID = "1428805731402121259";
 const MAIN_GROUP_ID = 35650805;
+const EVERYONE_ROLE_ID = "1428804583471448264";
 
 const allianceGroups = [
     { gid: 35456535, rid: "1428804729751736432" },
@@ -220,6 +225,7 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.login(TOKEN);
+
 
 
 
