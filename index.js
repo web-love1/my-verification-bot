@@ -155,35 +155,38 @@ client.on('interactionCreate', async (interaction) => {
                     const vRole = interaction.guild.roles.cache.get(config.EVERYONE_VERIFIED_ROLE);
                     if (vRole) await member.roles.add(vRole).catch(e => console.log("ให้ยศเริ่มต้นไม่ได้:", e.message));
                 }
-                    // --- ระบบส่ง Log ไปยังช่องที่กำหนด ---
+                    // --- [D] ระบบส่ง Log (ย้ายเข้ามาอยู่ในเงื่อนไข Success) ---
                     const logChannel = client.channels.cache.get(LOG_CHANNEL_ID);
                     if (logChannel) {
                         const logEmbed = new EmbedBuilder()
-                            .setTitle('🔄 อัพเดทยศ')
+                            .setTitle('🔄 บันทึกการยืนยันตัวตน')
                             .setColor("#3498db")
                             .addFields(
-                                { name: '👤 สมาชิก', value: `<@${member.id}>`, inline: false },
-                                { name: '📊 Rank', value: mainGroup ? mainGroup.role.name : 'ไม่พบข้อมูลกลุ่มหลัก', inline: true },
-                                { name: '🟢 Role ที่เพิ่ม', value: addedRoles.join(', ') || 'ไม่มี', inline: false },
-                                { name: '🏰 Server', value: interaction.guild.name, inline: false }
+                                { name: '👤 สมาชิก', value: `<@${member.id}> (${robloxName})`, inline: false },
+                                { name: '📊 Rank ในกลุ่ม', value: mainGroup ? mainGroup.role.name : 'ไม่พบข้อมูลกลุ่มหลัก', inline: true },
+                                { name: '🟢 ยศที่ได้รับ', value: addedRoles.join(', ') || 'ไม่มี', inline: false },
+                                { name: '🏰 เซิร์ฟเวอร์', value: interaction.guild.name, inline: true }
                             )
                             .setTimestamp();
-                        await logChannel.send({ embeds: [logEmbed] });
+                        await logChannel.send({ embeds: [logEmbed] }).catch(e => console.log("ส่ง Log ไม่ได้:", e.message));
                     }
+
+                    await interaction.editReply({ content: `✅ ยืนยันตัวตนสำเร็จ! ยินดีต้อนรับคุณ **${robloxName}**` });
+                } else {
+                    await interaction.editReply({ content: '❌ ไม่พบชื่อผู้ใช้งานนี้ใน Roblox' });
                 }
-            
-                await interaction.editReply({ content: `✅ ยืนยันตัวตนสำเร็จ! ยินดีต้อนรับคุณ **${robloxName}**` });
             } else {
-                await interaction.editReply({ content: '❌ ข้อมูลไม่ถูกต้อง หรือรหัสผ่านผิดกรุณาตรวจสอบอีกครั้ง' });
+                await interaction.editReply({ content: '❌ ข้อมูลไม่ถูกต้อง หรือรหัสผ่านผิด' });
             }
         } catch (error) {
             console.error(error);
-            await interaction.editReply({ content: '❌ ระบบขัดข้อง (API Error) กรุณาแจ้งผู้ดูแลระบบ' });
+            await interaction.editReply({ content: '❌ ระบบขัดข้อง กรุณาลองใหม่ภายหลัง' });
         }
     }
 });
 
 client.login(TOKEN);
+
 
 
 
