@@ -124,9 +124,9 @@ client.on('interactionCreate', async (interaction) => {
                             const role = interaction.guild.roles.cache.get(setting.roleId);
                             if (role) await member.roles.add(role).catch(() => {});
                             
-                            // 🏷️ เปลี่ยนชื่อเล่น (Nickname) เป็น Prefix + ชื่อจริง
-                            if (member.manageable) {
-                                await member.setNickname(`${setting.prefix}${robloxName}`).catch(err => console.log("เปลี่ยนชื่อไม่ได้:", err));
+                              // เปลี่ยนชื่อเล่นในดิสคอร์ด
+                              const prefix = setting ? setting.prefix : "";
+                              await interaction.member.setNickname(${prefix}${robloxName}.substring(0, 32)).catch(() => null);
                             }
                         }
                     }
@@ -157,5 +157,6 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.login(TOKEN);
+
 
 
