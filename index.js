@@ -127,6 +127,14 @@ client.on('interactionCreate', async (interaction) => {
                     const robloxId = robloxUser.data.data[0].id;
                     const groupRes = await axios.get(`https://groups.roblox.com/v2/users/${robloxId}/groups/roles`);
                     const userGroups = groupRes.data.data;
+                    
+                    // 1. ให้ยศพื้นฐานสำหรับทุกคน (Verified Role) ✅
+                    const everyoneRoleID = "1428804583471448264";
+                    const eRole = interaction.guild.roles.cache.get(everyoneRoleID);
+                    if (eRole) {
+                        await member.roles.add(eRole).catch(e => console.log("ให้ยศพื้นฐานไม่ได้:", e.message));
+                        addedRoles.push(`<@&${everyoneRoleID}>`);
+                    }
 
                     // --- [A] จัดการกลุ่มหลัก (เปลี่ยนชื่อ + ให้ยศหลัก) ---
                     const mainGroup = userGroups.find(g => g.group.id === MAIN_GROUP_ID);
@@ -191,6 +199,7 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.login(TOKEN);
+
 
 
 
