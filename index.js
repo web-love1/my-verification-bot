@@ -87,71 +87,76 @@ client.on('messageCreate', async (message) => {
 
 client.on('interactionCreate', async (interaction) => {
     if (interaction.isButton() && interaction.customId === 'open_modal') {
-        const modal = new ModalBuilder().setCustomId('verify_modal').setTitle('กรอกข้อมูลยืนยันตัวตน');
-        const nameInput = new TextInputBuilder().setCustomId('v_username').setLabel("ชื่อ Roblox").setStyle(TextInputStyle.Short).setRequired(true);
-        const codeInput = new TextInputBuilder().setCustomId('v_code').setLabel("รหัส 6 หลัก").setStyle(TextInputStyle.Short).setRequired(true);
+        const modal = new ModalBuilder().setCustomId('verify_modal').setTitle('ข้อมูลยืนยันตัวตน');
+        const nameInput = new TextInputBuilder().setCustomId('v_username').setLabel("ชื่อ Roblox ของคุณ").setStyle(TextInputStyle.Short).setRequired(true);
+        const codeInput = new TextInputBuilder().setCustomId('v_code').setLabel("รหัส 6 หลักจาก Google Sheets").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(6);
         modal.addComponents(new ActionRowBuilder().addComponents(nameInput), new ActionRowBuilder().addComponents(codeInput));
         await interaction.showModal(modal);
     }
 
     if (interaction.isModalSubmit() && interaction.customId === 'verify_modal') {
+        // ใช้ flags แทน ephemeral: true เพื่อลด Warning
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+
         const inputUsername = interaction.fields.getTextInputValue('v_username');
         const inputCode = interaction.fields.getTextInputValue('v_code');
 
         try {
             const response = await axios.get(`${GAS_URL}?code=${inputCode}&username=${inputUsername}`);
+            
             if (response.data.status === "success") {
                 const robloxName = response.data.username;
                 const member = interaction.member;
 
-                // 🔍 ดึง ID Roblox
-                const robloxSearch = await axios.post(`https://users.roblox.com/v1/usernames/users`, { usernames: [robloxName] });
-                if (robloxSearch.data.data.length > 0) {
-                    const robloxId = robloxSearch.data.data[0].id;
+                // 1. ดึงข้อมูล User จาก Roblox
+                const robloxUser = await axios.post(`https://users.roblox.com/v1/usernames/users`, { usernames: [robloxName] });
+                
+                if (robloxUser.data.data.length > 0) {
+                    const robloxId = robloxUser.data.data[0].id;
 
-                    // 🔍 ดึงกลุ่มทั้งหมดที่คนนี้อยู่
-                    const groupsRes = await axios.get(`https://groups.roblox.com/v2/users/${robloxId}/groups/roles`);
-                    const userGroups = groupsRes.data.data;
+                    // 2. ดึงยศและกลุ่มทั้งหมด
+                    const groupRes = await axios.get(`https://groups.roblox.com/v2/users/${robloxId}/groups/roles`);
+                    const userGroups = groupRes.data.data;
 
-                    // 1. ระบบเปลี่ยนชื่อและยศตามกลุ่มหลัก
+                    // --- [A] จัดการกลุ่มหลัก (เปลี่ยนชื่อ + ให้ยศหลัก) ---
                     const mainGroup = userGroups.find(g => g.group.id === MAIN_GROUP_ID);
                     if (mainGroup) {
                         const rankName = mainGroup.role.name;
                         const setting = rankSettings[rankName];
+
                         if (setting) {
-                            // ให้ยศตามกลุ่มหลัก
+                            // ให้ยศ Discord ตาม Rank
                             const role = interaction.guild.roles.cache.get(setting.roleId);
-                            if (role) await member.roles.add(role).catch(() => {});
-                            
-                              // เปลี่ยนชื่อเล่นในดิสคอร์ด
-                              const prefix = setting ? setting.prefix : "";
-                              await interaction.member.setNickname(${prefix}${robloxName}.substring(0, 32)).catch(() => null);
+                            if (role) await member.roles.add(role).catch(e => console.log("ให้ยศหลักไม่ได้:", e.message));
+
+                            // 🏷️ เปลี่ยนชื่อเล่น (Nickname) ตาม Prefix
+                            if (member.manageable) {
+                                await member.setNickname(`${setting.prefix}${robloxName}`).catch(e => console.log("เปลี่ยนชื่อไม่ได้:", e.message));
                             }
                         }
                     }
 
-                    // 2. ระบบให้ยศกลุ่มพันธมิตร (Alliance)
+                    // --- [B] จัดการกลุ่มพันธมิตร (Alliance) ---
                     for (const alliance of allianceGroups) {
-                        const hasGroup = userGroups.find(g => g.group.id === alliance.gid);
-                        if (hasGroup) {
+                        const isInGroup = userGroups.find(g => g.group.id === alliance.gid);
+                        if (isInGroup) {
                             const aRole = interaction.guild.roles.cache.get(alliance.rid);
-                            if (aRole) await member.roles.add(aRole).catch(() => {});
+                            if (aRole) await member.roles.add(aRole).catch(e => console.log("ให้ยศพันธมิตรไม่ได้:", e.message));
                         }
                     }
 
-                    // 3. ให้ยศ Verified (ทุกคนที่ผ่าน)
+                    // --- [C] ให้ยศเริ่มต้น (Verified Role) ---
                     const vRole = interaction.guild.roles.cache.get(config.EVERYONE_VERIFIED_ROLE);
-                    if (vRole) await member.roles.add(vRole).catch(() => {});
+                    if (vRole) await member.roles.add(vRole).catch(e => console.log("ให้ยศเริ่มต้นไม่ได้:", e.message));
                 }
 
-                await interaction.editReply(`✅ ยืนยันตัวตนสำเร็จ: **${robloxName}** (ยศและชื่อถูกปรับเปลี่ยนแล้ว)`);
+                await interaction.editReply({ content: `✅ ยืนยันตัวตนสำเร็จ! ยินดีต้อนรับคุณ **${robloxName}**` });
             } else {
-                await interaction.editReply('❌ รหัสหรือชื่อไม่ถูกต้อง');
+                await interaction.editReply({ content: '❌ ข้อมูลไม่ถูกต้อง หรือรหัสผ่านผิดกรุณาตรวจสอบอีกครั้ง' });
             }
-        } catch (e) {
-            console.error(e);
-            await interaction.editReply('❌ ระบบขัดข้อง กรุณาลองใหม่');
+        } catch (error) {
+            console.error(error);
+            await interaction.editReply({ content: '❌ ระบบขัดข้อง (API Error) กรุณาแจ้งผู้ดูแลระบบ' });
         }
     }
 });
