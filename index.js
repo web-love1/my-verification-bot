@@ -84,6 +84,20 @@ const rankSettings = {
 
 client.once('ready', () => { console.log(`✅ Logged in as ${client.user.tag}`); });
 
+// คำสั่งตั้งค่าปุ่ม
+client.on('messageCreate', async (message) => {
+    if (message.content === '!setup-verify') {
+        const embed = new EmbedBuilder()
+            .setTitle('🎫 ยืนยันตัวตน')
+            .setDescription('กดปุ่มด้านล่างเพื่อเริ่มการยืนยันตัวตน')
+            .setColor("#800000");
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('open_modal').setLabel('ยืนยันตัวตน').setStyle(ButtonStyle.Success)
+        );
+        await message.channel.send({ embeds: [embed], components: [row] });
+    }
+});
+
 client.on('interactionCreate', async (interaction) => {
     if (interaction.isButton() && interaction.customId === 'open_modal') {
         const modal = new ModalBuilder().setCustomId('verify_modal').setTitle('ข้อมูลยืนยันตัวตน');
@@ -128,41 +142,36 @@ client.on('interactionCreate', async (interaction) => {
                         }
                     }
 
-                    // 2. ให้ยศพันธมิตร
-                    for (const alliance of allianceGroups) {
-                        if (userGroups.find(g => g.group.id === alliance.gid)) {
-                            const aRole = interaction.guild.roles.cache.get(alliance.rid);
-                            if (aRole) {
-                                await member.roles.add(aRole);
-                                addedRoles.push(`<@&${alliance.rid}>`);
-                            }
-                        }
+                    // 2. ให้ยศ Verified เริ่มต้น
+                    const vRole = interaction.guild.roles.cache.get("ใส่ไอดีเเจ้งยศ verified"); 
+                    if (vRole) {
+                        await member.roles.add(vRole);
+                        addedRoles.push(`<@&${vRole.id}>`);
                     }
 
-                    // --- ส่งระบบ LOG ไปยัง Discord Channel ---
+                    // --- ส่ง LOG ไปยังห้องที่กำหนด ---
                     const logChannel = client.channels.cache.get(LOG_CHANNEL_ID);
                     if (logChannel) {
                         const logEmbed = new EmbedBuilder()
-                            .setTitle('🔄 บันทึกการอัพเดทยศ')
+                            .setTitle('🔄 อัพเดทยศ')
                             .setColor("#3498db")
                             .addFields(
                                 { name: '👤 สมาชิก', value: `<@${member.id}>`, inline: false },
-                                { name: '📊 Rank', value: mainGroup ? mainGroup.role.name : 'ไม่พบข้อมูล', inline: true },
-                                { name: '🟢 Role ที่ได้รับ', value: addedRoles.join(', ') || 'ไม่มี', inline: false },
-                                { name: '🏰 Server', value: interaction.guild.name, inline: true }
+                                { name: '📊 Rank', value: mainGroup ? mainGroup.role.name : 'ไม่พบกลุ่ม', inline: true },
+                                { name: '🟢 Role ที่เพิ่ม', value: addedRoles.join(', ') || 'ไม่มี', inline: false },
+                                { name: '🏰 Server', value: interaction.guild.name, inline: false }
                             )
                             .setTimestamp();
                         await logChannel.send({ embeds: [logEmbed] }).catch(() => {});
                     }
-
-                    await interaction.editReply(`✅ ยืนยันตัวตนสำเร็จ: **${robloxName}**`);
                 }
+                await interaction.editReply(`✅ ยืนยันสำเร็จ: **${robloxName}**`);
             } else {
                 await interaction.editReply('❌ รหัสไม่ถูกต้อง');
             }
         } catch (error) {
             console.error(error);
-            await interaction.editReply('❌ ระบบขัดข้อง กรุณาลองใหม่');
+            await interaction.editReply('❌ เกิดข้อผิดพลาดในระบบ');
         }
     }
 });
