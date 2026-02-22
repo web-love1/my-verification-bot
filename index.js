@@ -1,6 +1,13 @@
 const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags } = require('discord.js');
 const axios = require('axios');
-const config = require('./config.json');
+const http = require('http'); // สำหรับแก้ปัญหา Render Port Binding
+
+// --- แก้ปัญหา No open ports detected บน Render ---
+http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.write('Bot is Running!');
+    res.end();
+}).listen(process.env.PORT || 3000);
 
 const client = new Client({
     intents: [
@@ -11,10 +18,10 @@ const client = new Client({
     ]
 });
 
-// --- SETTINGS ---
+// --- CONFIGURATION ---
 const TOKEN = process.env.TOKEN; 
 const GAS_URL = process.env.GAS_URL;
-const LOG_CHANNEL_ID = "1428805731402121259"; // ช่องบันทึกข้อมูล
+const LOG_CHANNEL_ID = "1428805731402121259";
 const MAIN_GROUP_ID = 35650805;
 
 const allianceGroups = [
@@ -75,33 +82,18 @@ const rankSettings = {
     "[OR-1] Private | พลทหาร": { prefix: "OR-1, PVT | ", roleId: "1469940048828043375" }
 };
 
-client.once('ready', () => { console.log(`✅ ${client.user.tag} Is Online!`); });
-
-client.on('messageCreate', async (message) => {
-    if (message.content === '!setup-verify') {
-        const embed = new EmbedBuilder()
-            .setTitle('ยืนยันตัวตน')
-            .setColor(config.EMBED_COLOR || "#00ff00")
-            .setFooter({ text: config.FOOTER_TEXT || "Verify System" });
-
-        const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('open_modal').setLabel('ยืนยันตัวตน').setStyle(ButtonStyle.Success)
-        );
-        await message.channel.send({ embeds: [embed], components: [row] });
-    }
-});
+client.once('ready', () => { console.log(`✅ Logged in as ${client.user.tag}`); });
 
 client.on('interactionCreate', async (interaction) => {
     if (interaction.isButton() && interaction.customId === 'open_modal') {
         const modal = new ModalBuilder().setCustomId('verify_modal').setTitle('ข้อมูลยืนยันตัวตน');
-        const nameInput = new TextInputBuilder().setCustomId('v_username').setLabel("ชื่อ Roblox ของคุณ").setStyle(TextInputStyle.Short).setRequired(true);
-        const codeInput = new TextInputBuilder().setCustomId('v_code').setLabel("รหัส 6 หลักจาก Google Sheets").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(6);
+        const nameInput = new TextInputBuilder().setCustomId('v_username').setLabel("ชื่อ Roblox").setStyle(TextInputStyle.Short).setRequired(true);
+        const codeInput = new TextInputBuilder().setCustomId('v_code').setLabel("รหัส 6 หลัก").setStyle(TextInputStyle.Short).setRequired(true);
         modal.addComponents(new ActionRowBuilder().addComponents(nameInput), new ActionRowBuilder().addComponents(codeInput));
         await interaction.showModal(modal);
     }
 
     if (interaction.isModalSubmit() && interaction.customId === 'verify_modal') {
-        // ใช้ flags แทน ephemeral: true เพื่อลด Warning
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
         const inputUsername = interaction.fields.getTextInputValue('v_username');
@@ -113,79 +105,70 @@ client.on('interactionCreate', async (interaction) => {
             if (response.data.status === "success") {
                 const robloxName = response.data.username;
                 const member = interaction.member;
+                let addedRoles = [];
 
-                // 1. ดึงข้อมูล User จาก Roblox
                 const robloxUser = await axios.post(`https://users.roblox.com/v1/usernames/users`, { usernames: [robloxName] });
                 
                 if (robloxUser.data.data.length > 0) {
                     const robloxId = robloxUser.data.data[0].id;
-
-                    // 2. ดึงยศและกลุ่มทั้งหมด
                     const groupRes = await axios.get(`https://groups.roblox.com/v2/users/${robloxId}/groups/roles`);
                     const userGroups = groupRes.data.data;
 
-                    // --- [A] จัดการกลุ่มหลัก (เปลี่ยนชื่อ + ให้ยศหลัก) ---
+                    // 1. จัดการยศหลัก + เปลี่ยนชื่อ
                     const mainGroup = userGroups.find(g => g.group.id === MAIN_GROUP_ID);
                     if (mainGroup) {
-                        const rankName = mainGroup.role.name;
-                        const setting = rankSettings[rankName];
-
+                        const setting = rankSettings[mainGroup.role.name];
                         if (setting) {
-                            // ให้ยศ Discord ตาม Rank
                             const role = interaction.guild.roles.cache.get(setting.roleId);
-                            if (role) await member.roles.add(role).catch(e => console.log("ให้ยศหลักไม่ได้:", e.message));
+                            if (role) {
+                                await member.roles.add(role);
+                                addedRoles.push(`<@&${setting.roleId}>`);
+                            }
+                            if (member.manageable) await member.setNickname(`${setting.prefix}${robloxName}`);
+                        }
+                    }
 
-                            // 🏷️ เปลี่ยนชื่อเล่น (Nickname) ตาม Prefix
-                            if (member.manageable) {
-                                await member.setNickname(`${setting.prefix}${robloxName}`).catch(e => console.log("เปลี่ยนชื่อไม่ได้:", e.message));
+                    // 2. ให้ยศพันธมิตร
+                    for (const alliance of allianceGroups) {
+                        if (userGroups.find(g => g.group.id === alliance.gid)) {
+                            const aRole = interaction.guild.roles.cache.get(alliance.rid);
+                            if (aRole) {
+                                await member.roles.add(aRole);
+                                addedRoles.push(`<@&${alliance.rid}>`);
                             }
                         }
                     }
 
-                    // --- [B] จัดการกลุ่มพันธมิตร (Alliance) ---
-                    for (const alliance of allianceGroups) {
-                        const isInGroup = userGroups.find(g => g.group.id === alliance.gid);
-                        if (isInGroup) {
-                            const aRole = interaction.guild.roles.cache.get(alliance.rid);
-                            if (aRole) await member.roles.add(aRole).catch(e => console.log("ให้ยศพันธมิตรไม่ได้:", e.message));
-                        }
-                    }
-
-                    // --- [C] ให้ยศเริ่มต้น (Verified Role) ---
-                    const vRole = interaction.guild.roles.cache.get(config.EVERYONE_VERIFIED_ROLE);
-                    if (vRole) await member.roles.add(vRole).catch(e => console.log("ให้ยศเริ่มต้นไม่ได้:", e.message));
-                }
-                    // --- [D] ระบบส่ง Log (ย้ายเข้ามาอยู่ในเงื่อนไข Success) ---
+                    // --- ส่งระบบ LOG ไปยัง Discord Channel ---
                     const logChannel = client.channels.cache.get(LOG_CHANNEL_ID);
                     if (logChannel) {
                         const logEmbed = new EmbedBuilder()
-                            .setTitle('🔄 บันทึกการยืนยันตัวตน')
+                            .setTitle('🔄 บันทึกการอัพเดทยศ')
                             .setColor("#3498db")
                             .addFields(
-                                { name: '👤 สมาชิก', value: `<@${member.id}> (${robloxName})`, inline: false },
-                                { name: '📊 Rank ในกลุ่ม', value: mainGroup ? mainGroup.role.name : 'ไม่พบข้อมูลกลุ่มหลัก', inline: true },
-                                { name: '🟢 ยศที่ได้รับ', value: addedRoles.join(', ') || 'ไม่มี', inline: false },
-                                { name: '🏰 เซิร์ฟเวอร์', value: interaction.guild.name, inline: true }
+                                { name: '👤 สมาชิก', value: `<@${member.id}>`, inline: false },
+                                { name: '📊 Rank', value: mainGroup ? mainGroup.role.name : 'ไม่พบข้อมูล', inline: true },
+                                { name: '🟢 Role ที่ได้รับ', value: addedRoles.join(', ') || 'ไม่มี', inline: false },
+                                { name: '🏰 Server', value: interaction.guild.name, inline: true }
                             )
                             .setTimestamp();
-                        await logChannel.send({ embeds: [logEmbed] }).catch(e => console.log("ส่ง Log ไม่ได้:", e.message));
+                        await logChannel.send({ embeds: [logEmbed] }).catch(() => {});
                     }
 
-                    await interaction.editReply({ content: `✅ ยืนยันตัวตนสำเร็จ! ยินดีต้อนรับคุณ **${robloxName}**` });
-                } else {
-                    await interaction.editReply({ content: '❌ ไม่พบชื่อผู้ใช้งานนี้ใน Roblox' });
+                    await interaction.editReply(`✅ ยืนยันตัวตนสำเร็จ: **${robloxName}**`);
                 }
             } else {
-                await interaction.editReply({ content: '❌ ข้อมูลไม่ถูกต้อง หรือรหัสผ่านผิด' });
+                await interaction.editReply('❌ รหัสไม่ถูกต้อง');
             }
         } catch (error) {
             console.error(error);
-            await interaction.editReply({ content: '❌ ระบบขัดข้อง กรุณาลองใหม่ภายหลัง' });
+            await interaction.editReply('❌ ระบบขัดข้อง กรุณาลองใหม่');
         }
     }
 });
 
 client.login(TOKEN);
+
 
 
 
