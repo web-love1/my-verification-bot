@@ -2,9 +2,9 @@ const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder
 const axios = require('axios');
 const http = require('http');
 
-const http = require('http');
 http.createServer((req, res) => {
-    res.write("Bot is running!");
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.write('Bot is Running!');
     res.end();
 }).listen(process.env.PORT || 3000);
 
@@ -217,9 +217,10 @@ client.on('interactionCreate', async (interaction) => {
             }
         }
     }
-}); // ปิด interactionCreate
+});
 
 client.login(TOKEN);
+
 
 
 
