@@ -108,33 +108,32 @@ client.on('interactionCreate', async (interaction) => {
     }
 
     if (interaction.isModalSubmit() && interaction.customId === 'verify_modal') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    const inputUsername = interaction.fields.getTextInputValue('v_username');
+    const inputCode = interaction.fields.getTextInputValue('v_code');
 
-        const inputUsername = interaction.fields.getTextInputValue('v_username');
-        const inputCode = interaction.fields.getTextInputValue('v_code');
+    try {
+        const response = await axios.get(`${GAS_URL}?code=${inputCode}&username=${inputUsername}`);
+        
+        if (response.data.status === "success") {
+            const robloxName = response.data.username;
+            const member = interaction.member;
+            let addedRoles = [];
 
-        try {
-            const response = await axios.get(`${GAS_URL}?code=${inputCode}&username=${inputUsername}`);
+            const robloxUser = await axios.post(`https://users.roblox.com/v1/usernames/users`, { usernames: [robloxName] });
             
-            if (response.data.status === "success") {
-                const robloxName = response.data.username;
-                const member = interaction.member;
-                let addedRoles = [];
+            if (robloxUser.data.data.length > 0) {
+                const robloxId = robloxUser.data.data[0].id;
+                const groupRes = await axios.get(`https://groups.roblox.com/v2/users/${robloxId}/groups/roles`);
+                const userGroups = groupRes.data.data;
 
-                const robloxUser = await axios.post(`https://users.roblox.com/v1/usernames/users`, { usernames: [robloxName] });
-                
-                if (robloxUser.data.data.length > 0) {
-                    const robloxId = robloxUser.data.data[0].id;
-                    const groupRes = await axios.get(`https://groups.roblox.com/v2/users/${robloxId}/groups/roles`);
-                    const userGroups = groupRes.data.data;
-                    
-                    // 1. ให้ยศพื้นฐานสำหรับทุกคน (Verified Role) ✅
-                    const everyoneRoleID = "1428804583471448264";
-                    const eRole = interaction.guild.roles.cache.get(everyoneRoleID);
-                    if (eRole) {
-                        await member.roles.add(eRole).catch(e => console.log("ให้ยศพื้นฐานไม่ได้:", e.message));
-                        addedRoles.push(`<@&${everyoneRoleID}>`);
-                    }
+                // 1. 🛡️ ให้ยศพื้นฐานสำหรับทุกคนที่ผ่านการยืนยัน (EVERYONE_ROLE)
+                const everyoneRoleId = "1428804583471448264";
+                const eRole = interaction.guild.roles.cache.get(everyoneRoleId);
+                if (eRole) {
+                    await member.roles.add(eRole).catch(e => console.log("ให้ยศพื้นฐานไม่สำเร็จ:", e.message));
+                    addedRoles.push(`<@&${everyoneRoleId}>`);
+                }
 
                     // --- [A] จัดการกลุ่มหลัก (เปลี่ยนชื่อ + ให้ยศหลัก) ---
                     const mainGroup = userGroups.find(g => g.group.id === MAIN_GROUP_ID);
@@ -199,6 +198,7 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.login(TOKEN);
+
 
 
 
