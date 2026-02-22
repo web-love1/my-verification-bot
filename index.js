@@ -187,7 +187,7 @@ client.on('interactionCreate', async (interaction) => {
                     }
                 }
                 await interaction.editReply(`✅ ยืนยันสำเร็จ: **${robloxName}**`);
-            } else {
+
                 await interaction.editReply('❌ รหัสไม่ถูกต้อง');
             }
         } catch (error) {
@@ -198,6 +198,7 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.login(TOKEN);
+
 
 
 
