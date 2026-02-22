@@ -8,10 +8,6 @@ http.createServer((req, res) => {
     res.end();
 }).listen(process.env.PORT || 3000);
 
-const client = new Client({
-    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMembers]
-});
-
 // --- ⚙️ CONFIGURATION ---
 const TOKEN = process.env.TOKEN;
 const GAS_URL = process.env.GAS_URL;
@@ -216,6 +212,7 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.login(TOKEN);
+
 
 
 
