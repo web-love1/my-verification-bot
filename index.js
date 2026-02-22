@@ -104,30 +104,34 @@ client.on('interactionCreate', async (interaction) => {
             if (response.data.status === "success") {
                 const robloxName = response.data.username;
                 const member = interaction.member;
-                
-                // ค้นหา ID ของผู้ใช้ Roblox
+
+                // 🔍 ดึง ID Roblox
                 const robloxSearch = await axios.post(`https://users.roblox.com/v1/usernames/users`, { usernames: [robloxName] });
                 if (robloxSearch.data.data.length > 0) {
                     const robloxId = robloxSearch.data.data[0].id;
 
-                    // 1. ตรวจสอบยศในกลุ่มหลัก
-                    const mainGroupRes = await axios.get(`https://groups.roblox.com/v2/users/${robloxId}/groups/roles`);
-                    const userGroups = mainGroupRes.data.data;
-                    const mainGroup = userGroups.find(g => g.group.id === MAIN_GROUP_ID);
+                    // 🔍 ดึงกลุ่มทั้งหมดที่คนนี้อยู่
+                    const groupsRes = await axios.get(`https://groups.roblox.com/v2/users/${robloxId}/groups/roles`);
+                    const userGroups = groupsRes.data.data;
 
+                    // 1. ระบบเปลี่ยนชื่อและยศตามกลุ่มหลัก
+                    const mainGroup = userGroups.find(g => g.group.id === MAIN_GROUP_ID);
                     if (mainGroup) {
                         const rankName = mainGroup.role.name;
                         const setting = rankSettings[rankName];
                         if (setting) {
-                            // ให้ยศ Discord ตาม Rank
+                            // ให้ยศตามกลุ่มหลัก
                             const role = interaction.guild.roles.cache.get(setting.roleId);
                             if (role) await member.roles.add(role).catch(() => {});
-                            // เปลี่ยนชื่อเล่น
-                            if (member.manageable) await member.setNickname(`${setting.prefix}${robloxName}`).catch(() => {});
+                            
+                            // 🏷️ เปลี่ยนชื่อเล่น (Nickname) เป็น Prefix + ชื่อจริง
+                            if (member.manageable) {
+                                await member.setNickname(`${setting.prefix}${robloxName}`).catch(err => console.log("เปลี่ยนชื่อไม่ได้:", err));
+                            }
                         }
                     }
 
-                    // 2. ตรวจสอบกลุ่มพันธมิตร (Alliance)
+                    // 2. ระบบให้ยศกลุ่มพันธมิตร (Alliance)
                     for (const alliance of allianceGroups) {
                         const hasGroup = userGroups.find(g => g.group.id === alliance.gid);
                         if (hasGroup) {
@@ -136,18 +140,18 @@ client.on('interactionCreate', async (interaction) => {
                         }
                     }
 
-                    // ให้ยศ Verified เริ่มต้น
+                    // 3. ให้ยศ Verified (ทุกคนที่ผ่าน)
                     const vRole = interaction.guild.roles.cache.get(config.EVERYONE_VERIFIED_ROLE);
                     if (vRole) await member.roles.add(vRole).catch(() => {});
                 }
 
-                await interaction.editReply(`✅ ยืนยันตัวตนสำเร็จ: **${robloxName}**`);
+                await interaction.editReply(`✅ ยืนยันตัวตนสำเร็จ: **${robloxName}** (ยศและชื่อถูกปรับเปลี่ยนแล้ว)`);
             } else {
                 await interaction.editReply('❌ รหัสหรือชื่อไม่ถูกต้อง');
             }
         } catch (e) {
             console.error(e);
-            await interaction.editReply('❌ ระบบขัดข้อง กรุณาลองใหม่ภายหลัง');
+            await interaction.editReply('❌ ระบบขัดข้อง กรุณาลองใหม่');
         }
     }
 });
