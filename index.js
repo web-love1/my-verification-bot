@@ -12,16 +12,7 @@ const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMembers]
 });
 
-const client = new Client({
-    intents: [
-        GatewayIntentBits.Guilds, 
-        GatewayIntentBits.GuildMessages, 
-        GatewayIntentBits.MessageContent, 
-        GatewayIntentBits.GuildMembers
-    ]
-});
-
-// --- CONFIGURATION ---
+// --- ⚙️ CONFIGURATION ---
 const TOKEN = process.env.TOKEN;
 const GAS_URL = process.env.GAS_URL;
 const LOG_CHANNEL_ID = "1428805731402121259";
