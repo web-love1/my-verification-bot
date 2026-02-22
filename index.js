@@ -3,12 +3,18 @@ const axios = require('axios');
 const config = require('./config.json');
 
 const client = new Client({
-    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMembers]
+    intents: [
+        GatewayIntentBits.Guilds, 
+        GatewayIntentBits.GuildMessages, 
+        GatewayIntentBits.MessageContent, 
+        GatewayIntentBits.GuildMembers
+    ]
 });
 
 // --- SETTINGS ---
 const TOKEN = process.env.TOKEN; 
 const GAS_URL = process.env.GAS_URL;
+const LOG_CHANNEL_ID = "1428805731402121259"; // ช่องบันทึกข้อมูล
 const MAIN_GROUP_ID = 35650805;
 
 const allianceGroups = [
@@ -149,7 +155,23 @@ client.on('interactionCreate', async (interaction) => {
                     const vRole = interaction.guild.roles.cache.get(config.EVERYONE_VERIFIED_ROLE);
                     if (vRole) await member.roles.add(vRole).catch(e => console.log("ให้ยศเริ่มต้นไม่ได้:", e.message));
                 }
-
+                    // --- ระบบส่ง Log ไปยังช่องที่กำหนด ---
+                    const logChannel = client.channels.cache.get(LOG_CHANNEL_ID);
+                    if (logChannel) {
+                        const logEmbed = new EmbedBuilder()
+                            .setTitle('🔄 อัพเดทยศ')
+                            .setColor("#3498db")
+                            .addFields(
+                                { name: '👤 สมาชิก', value: `<@${member.id}>`, inline: false },
+                                { name: '📊 Rank', value: mainGroup ? mainGroup.role.name : 'ไม่พบข้อมูลกลุ่มหลัก', inline: true },
+                                { name: '🟢 Role ที่เพิ่ม', value: addedRoles.join(', ') || 'ไม่มี', inline: false },
+                                { name: '🏰 Server', value: interaction.guild.name, inline: false }
+                            )
+                            .setTimestamp();
+                        await logChannel.send({ embeds: [logEmbed] });
+                    }
+                }
+            
                 await interaction.editReply({ content: `✅ ยืนยันตัวตนสำเร็จ! ยินดีต้อนรับคุณ **${robloxName}**` });
             } else {
                 await interaction.editReply({ content: '❌ ข้อมูลไม่ถูกต้อง หรือรหัสผ่านผิดกรุณาตรวจสอบอีกครั้ง' });
@@ -162,6 +184,7 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.login(TOKEN);
+
 
 
 
