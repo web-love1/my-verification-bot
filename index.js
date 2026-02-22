@@ -128,25 +128,31 @@ client.on('interactionCreate', async (interaction) => {
                     const groupRes = await axios.get(`https://groups.roblox.com/v2/users/${robloxId}/groups/roles`);
                     const userGroups = groupRes.data.data;
 
-                    // 1. จัดการยศหลัก + เปลี่ยนชื่อ
+                    // --- [A] จัดการกลุ่มหลัก (เปลี่ยนชื่อ + ให้ยศหลัก) ---
                     const mainGroup = userGroups.find(g => g.group.id === MAIN_GROUP_ID);
                     if (mainGroup) {
-                        const setting = rankSettings[mainGroup.role.name];
+                        const rankName = mainGroup.role.name;
+                        const setting = rankSettings[rankName];
+
                         if (setting) {
+                            // ให้ยศ Discord ตาม Rank
                             const role = interaction.guild.roles.cache.get(setting.roleId);
-                            if (role) {
-                                await member.roles.add(role);
-                                addedRoles.push(`<@&${setting.roleId}>`);
+                            if (role) await member.roles.add(role).catch(e => console.log("ให้ยศหลักไม่ได้:", e.message));
+
+                            // 🏷️ เปลี่ยนชื่อเล่น (Nickname) ตาม Prefix
+                            if (member.manageable) {
+                                await member.setNickname(`${setting.prefix}${robloxName}`).catch(e => console.log("เปลี่ยนชื่อไม่ได้:", e.message));
                             }
-                            if (member.manageable) await member.setNickname(`${setting.prefix}${robloxName}`);
                         }
                     }
 
-                    // 2. ให้ยศ Verified เริ่มต้น
-                    const vRole = interaction.guild.roles.cache.get("ใส่ไอดีเเจ้งยศ verified"); 
-                    if (vRole) {
-                        await member.roles.add(vRole);
-                        addedRoles.push(`<@&${vRole.id}>`);
+                    // --- [B] จัดการกลุ่มพันธมิตร (Alliance) ---
+                    for (const alliance of allianceGroups) {
+                        const isInGroup = userGroups.find(g => g.group.id === alliance.gid);
+                        if (isInGroup) {
+                            const aRole = interaction.guild.roles.cache.get(alliance.rid);
+                            if (aRole) await member.roles.add(aRole).catch(e => console.log("ให้ยศพันธมิตรไม่ได้:", e.message));
+                        }
                     }
 
                     // --- ส่ง LOG ไปยังห้องที่กำหนด ---
@@ -177,6 +183,7 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.login(TOKEN);
+
 
 
 
