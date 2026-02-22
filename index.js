@@ -154,6 +154,14 @@ client.on('interactionCreate', async (interaction) => {
                             if (aRole) await member.roles.add(aRole).catch(e => console.log("ให้ยศพันธมิตรไม่ได้:", e.message));
                         }
                     }
+                }
+
+                    // --- [C] ให้ยศเริ่มต้น ---
+                    const vRole = interaction.guild.roles.cache.get(config.EVERYONE_VERIFIED_ROLE);
+                    if (vRole) {
+                        await member.roles.add(vRole).catch(e => console.log("ให้ยศเริ่มต้นไม่ได้:", e.message));
+                        addedRoles.push(`<@&${config.EVERYONE_VERIFIED_ROLE}>`);
+                    }
 
                     // --- ส่ง LOG ไปยังห้องที่กำหนด ---
                     const logChannel = client.channels.cache.get(LOG_CHANNEL_ID);
@@ -183,6 +191,7 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.login(TOKEN);
+
 
 
 
