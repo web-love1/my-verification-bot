@@ -90,7 +90,8 @@ const rankSettings = {
     "[OR-1] Private | พลทหาร": { prefix: "OR-1, PVT | ", roleId: "1469940048828043375" }
 };
 
-client.once('ready', () => { console.log(`✅ Logged in as ${client.user.tag}`); });
+client.once('ready', () => { 
+    console.log(`✅ Logged in as ${client.user.tag}`);
 
 // คำสั่งตั้งค่าปุ่ม
 client.on('messageCreate', async (message) => {
@@ -211,3 +212,4 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.login(TOKEN);
+
