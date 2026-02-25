@@ -200,7 +200,7 @@ client.on('interactionCreate', async (interaction) => {
                 await interaction.editReply(`✅ ยืนยันตัวตนสำเร็จ: **${robloxName}**`);
                 
                 await interaction.editReply('❌ รหัสยืนยันไม่ถูกต้อง');
-            }
+
         } catch (error) {
             console.error(error);
             if (!interaction.replied) {
@@ -211,6 +211,7 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.login(TOKEN);
+
 
 
 
