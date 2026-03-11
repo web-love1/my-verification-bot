@@ -8,6 +8,10 @@ http.createServer((req, res) => {
     res.end();
 }).listen(process.env.PORT || 3000);
 
+const client = new Client({
+    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMembers]
+});
+
 // --- ⚙️ CONFIGURATION ---
 const TOKEN = process.env.TOKEN;
 const GAS_URL = process.env.GAS_URL;
@@ -91,7 +95,8 @@ const rankSettings = {
 };
 
 client.once('ready', () => { 
-    console.log(`✅ Logged in as ${client.user.tag}`);
+    console.log(`✅ Logged in as ${client.user.tag}`); 
+});
 
 // คำสั่งตั้งค่าปุ่ม
 client.on('messageCreate', async (message) => {
@@ -212,4 +217,5 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.login(TOKEN);
+
 
