@@ -96,7 +96,7 @@ const rankSettings = {
 };
 
 client.once('ready', () => { 
-    console.log(`✅ Logged in as ${client.user.tag}`); 
+    console.log(`✅ บอทออนไลน์ในชื่อ: ${client.user.tag}`); 
 });
 
 client.on('messageCreate', async (message) => {
