@@ -176,7 +176,7 @@ client.on('interactionCreate', async (interaction) => {
                     }
 
                     // 4. ระบบส่ง LOG ไปยังช่องแจ้งเตือน (ส่งเฉพาะกรณีที่สำเร็จเท่านั้น)
-                    const logChannel = client.channels.cache.get(1428805731402121259);
+                    const logChannel = client.channels.cache.get(LOG_CHANNEL_ID);
                     if (logChannel) {
                         const logEmbed = new EmbedBuilder()
                             .setTitle('🔄 บันทึกการอัพเดทยศ')
