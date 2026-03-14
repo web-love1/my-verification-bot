@@ -2,6 +2,7 @@ const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder
 const axios = require('axios');
 const http = require('http');
 
+// --- 🛡️ แก้ปัญหา Render Port Timeout ---
 http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     res.write('Bot is Running!');
@@ -98,7 +99,6 @@ client.once('ready', () => {
     console.log(`✅ Logged in as ${client.user.tag}`); 
 });
 
-// คำสั่งตั้งค่าปุ่ม
 client.on('messageCreate', async (message) => {
     if (message.content === '!setup-verify') {
         const embed = new EmbedBuilder()
@@ -122,71 +122,61 @@ client.on('interactionCreate', async (interaction) => {
     }
 
     if (interaction.isModalSubmit() && interaction.customId === 'verify_modal') {
-    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-    const inputUsername = interaction.fields.getTextInputValue('v_username');
-    const inputCode = interaction.fields.getTextInputValue('v_code');
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const inputUsername = interaction.fields.getTextInputValue('v_username');
+        const inputCode = interaction.fields.getTextInputValue('v_code');
 
-    try {
-        const response = await axios.get(`${GAS_URL}?code=${inputCode}&username=${inputUsername}`);
-        
-        if (response.data.status === "success") {
-            const robloxName = response.data.username;
-            const member = interaction.member;
-            let addedRoles = [];
-
-            const robloxUser = await axios.post(`https://users.roblox.com/v1/usernames/users`, { usernames: [robloxName] });
+        try {
+            const response = await axios.get(`${GAS_URL}?code=${inputCode}&username=${inputUsername}`);
             
-            if (robloxUser.data.data.length > 0) {
-                const robloxId = robloxUser.data.data[0].id;
-                const groupRes = await axios.get(`https://groups.roblox.com/v2/users/${robloxId}/groups/roles`);
-                const userGroups = groupRes.data.data;
+            if (response.data.status === "success") {
+                const robloxName = response.data.username;
+                const member = interaction.member;
+                let addedRoles = [];
 
-                // 1. 🛡️ ให้ยศพื้นฐานสำหรับทุกคนที่ผ่านการยืนยัน (EVERYONE_ROLE)
-                const everyoneRoleId = "1428804583471448264";
-                const eRole = interaction.guild.roles.cache.get(everyoneRoleId);
-                if (eRole) {
-                    await member.roles.add(eRole).catch(e => console.log("ให้ยศพื้นฐานไม่สำเร็จ:", e.message));
-                    addedRoles.push(`<@&${everyoneRoleId}>`);
-                }
+                const robloxUser = await axios.post(`https://users.roblox.com/v1/usernames/users`, { usernames: [robloxName] });
+                
+                if (robloxUser.data.data.length > 0) {
+                    const robloxId = robloxUser.data.data[0].id;
+                    const groupRes = await axios.get(`https://groups.roblox.com/v2/users/${robloxId}/groups/roles`);
+                    const userGroups = groupRes.data.data;
 
-                    // --- [A] จัดการกลุ่มหลัก (เปลี่ยนชื่อ + ให้ยศหลัก) ---
+                    // 1. ให้ยศพื้นฐาน Verified
+                    const eRole = interaction.guild.roles.cache.get(EVERYONE_ROLE_ID);
+                    if (eRole) {
+                        await member.roles.add(eRole).catch(e => console.log("Error: " + e.message));
+                        addedRoles.push(`<@&${EVERYONE_ROLE_ID}>`);
+                    }
+
+                    // 2. จัดการกลุ่มหลัก (MAIN_GROUP)
                     const mainGroup = userGroups.find(g => g.group.id === MAIN_GROUP_ID);
                     if (mainGroup) {
-                        const rankName = mainGroup.role.name;
-                        const setting = rankSettings[rankName];
-
+                        const setting = rankSettings[mainGroup.role.name];
                         if (setting) {
-                            // ให้ยศ Discord ตาม Rank
                             const role = interaction.guild.roles.cache.get(setting.roleId);
-                            if (role) await member.roles.add(role).catch(e => console.log("ให้ยศหลักไม่ได้:", e.message));
-
-                            // 🏷️ เปลี่ยนชื่อเล่น (Nickname) ตาม Prefix
+                            if (role) {
+                                await member.roles.add(role).catch(e => console.log("Error: " + e.message));
+                                addedRoles.push(`<@&${setting.roleId}>`);
+                            }
                             if (member.manageable) {
-                                await member.setNickname(`${setting.prefix}${robloxName}`).catch(e => console.log("เปลี่ยนชื่อไม่ได้:", e.message));
+                                await member.setNickname(`${setting.prefix}${robloxName}`).catch(e => console.log("Error: " + e.message));
                             }
                         }
                     }
 
-                    // --- [B] จัดการกลุ่มพันธมิตร (Alliance) ---
+                    // 3. จัดการกลุ่มพันธมิตร (Alliance)
                     for (const alliance of allianceGroups) {
-                        const isInGroup = userGroups.find(g => g.group.id === alliance.gid);
-                        if (isInGroup) {
+                        if (userGroups.find(g => g.group.id === alliance.gid)) {
                             const aRole = interaction.guild.roles.cache.get(alliance.rid);
-                            if (aRole) await member.roles.add(aRole).catch(e => console.log("ให้ยศพันธมิตรไม่ได้:", e.message));
+                            if (aRole) {
+                                await member.roles.add(aRole).catch(e => console.log("Error: " + e.message));
+                                addedRoles.push(`<@&${alliance.rid}>`);
+                            }
                         }
                     }
-                }
 
-                    // 4. ให้ยศพื้นฐานสำหรับทุกคนที่ยืนยันผ่าน
-                    const everyoneRoleId = "1428804583471448264";
-                    const eRole = interaction.guild.roles.cache.get(everyoneRoleId);
-                    if (eRole) {
-                        await member.roles.add(eRole).catch(() => {});
-                        addedRoles.push(`<@&${everyoneRoleId}>`);
-                    }
-
-                    // 5. ระบบส่ง LOG ไปยังช่องแจ้งเตือน
-                    const logChannel = client.channels.cache.get(LOG_CHANNEL_ID);
+                    // 4. ระบบส่ง LOG ไปยังช่องแจ้งเตือน (ส่งเฉพาะกรณีที่สำเร็จเท่านั้น)
+                    const logChannel = client.channels.cache.get(1428805731402121259);
                     if (logChannel) {
                         const logEmbed = new EmbedBuilder()
                             .setTitle('🔄 บันทึกการอัพเดทยศ')
@@ -194,18 +184,17 @@ client.on('interactionCreate', async (interaction) => {
                             .addFields(
                                 { name: '👤 สมาชิก', value: `<@${member.id}> (${robloxName})`, inline: false },
                                 { name: '📊 Rank กลุ่มหลัก', value: mainGroup ? mainGroup.role.name : 'ไม่พบข้อมูล', inline: true },
-                                { name: '🟢 Role ที่เพิ่มทั้งหมด', value: addedRoles.join(', ') || 'ไม่มี', inline: false },
-                                { name: '🏰 Server', value: interaction.guild.name, inline: true }
+                                { name: '🟢 Role ที่เพิ่มทั้งหมด', value: addedRoles.join(', ') || 'ไม่มี', inline: false }
                             )
                             .setTimestamp();
-
                         await logChannel.send({ embeds: [logEmbed] }).catch(() => {});
                     }
+                    await interaction.editReply(`✅ ยืนยันตัวตนสำเร็จ: **${robloxName}**`);
+                } else {
+                    await interaction.editReply('❌ ไม่พบชื่อผู้ใช้นี้ในระบบ Roblox');
                 }
-                
-                await interaction.editReply(`✅ ยืนยันตัวตนสำเร็จ: **${robloxName}**`);
             } else {
-                await interaction.editReply('❌ รหัสยืนยันไม่ถูกต้อง'); // 🟢 ย้ายมาไว้ใน else
+                await interaction.editReply('❌ รหัสยืนยันไม่ถูกต้อง');
             }
         } catch (error) {
             console.error(error);
