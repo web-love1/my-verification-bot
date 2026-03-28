@@ -113,7 +113,7 @@ client.on('interactionCreate', async (interaction) => {
         try {
             const response = await axios.get(`${GAS_URL}?code=${inputCode}&username=${inputUsername}`);
             
-            if (response.data.status === "success") {
+if (response.data.status === "success") {
                 const robloxName = response.data.username;
                 const member = interaction.member;
                 let addedRoles = [];
@@ -125,57 +125,67 @@ client.on('interactionCreate', async (interaction) => {
                     const groupRes = await axios.get(`https://groups.roblox.com/v2/users/${robloxId}/groups/roles`);
                     const userGroups = groupRes.data.data;
 
-                    // --- ให้ยศพื้นฐาน ---
-                    const eRole = interaction.guild.roles.cache.get(EVERYONE_ROLE_ID);
-                    if (eRole) {
-                        await member.roles.add(eRole).catch(() => {});
+                    // 1. บังคับให้ยศพื้นฐาน (Verified) ทันที
+                    try {
+                        await member.roles.add(EVERYONE_ROLE_ID);
                         addedRoles.push(`<@&${EVERYONE_ROLE_ID}>`);
+                    } catch (e) {
+                        console.log("❌ ให้ยศพื้นฐานไม่ได้:", e.message);
                     }
 
-                    // --- กลุ่มหลัก ---
+                    // 2. จัดการกลุ่มหลัก
                     const mainGroup = userGroups.find(g => g.group.id === MAIN_GROUP_ID);
                     if (mainGroup) {
-                        const setting = rankSettings[mainGroup.role.name];
+                        const robloxRoleName = mainGroup.role.name; // ชื่อยศจาก Roblox
+                        const setting = rankSettings[robloxRoleName]; // เทียบกับในโค้ด
+                        
                         if (setting) {
-                            const role = interaction.guild.roles.cache.get(setting.roleId);
-                            if (role) {
-                                await member.roles.add(role).catch(() => {});
+                            // บังคับยัดยศด้วย ID ทันที
+                            try {
+                                await member.roles.add(setting.roleId);
                                 addedRoles.push(`<@&${setting.roleId}>`);
+                            } catch (e) {
+                                console.log("❌ ให้ยศกลุ่มหลักไม่ได้:", e.message);
                             }
+
+                            // เปลี่ยนชื่อ
                             if (member.manageable) {
                                 await member.setNickname(`${setting.prefix}${robloxName}`).catch(() => {});
                             }
+                        } else {
+                            console.log(`⚠️ หาชื่อยศไม่เจอใน rankSettings: "${robloxRoleName}"`);
                         }
                     }
 
-                    // --- กลุ่มพันธมิตร ---
+                    // 3. จัดการกลุ่มพันธมิตร (บังคับยัดยศด้วย ID)
                     for (const alliance of allianceGroups) {
                         if (userGroups.find(g => g.group.id === alliance.gid)) {
-                            const aRole = interaction.guild.roles.cache.get(alliance.rid);
-                            if (aRole) {
-                                await member.roles.add(aRole).catch(() => {});
+                            try {
+                                await member.roles.add(alliance.rid);
                                 addedRoles.push(`<@&${alliance.rid}>`);
+                            } catch (e) {
+                                console.log("❌ ให้ยศพันธมิตรไม่ได้:", e.message);
                             }
                         }
                     }
 
-                    // --- ส่ง LOG ---
-                    const logChannel = client.channels.cache.get(LOG_CHANNEL_ID);
+                    // 4. ส่ง LOG
+                    const logChannel = client.channels.cache.get(LOG_CHANNEL_ID) || await client.channels.fetch(LOG_CHANNEL_ID).catch(()=>null);
                     if (logChannel) {
                         const logEmbed = new EmbedBuilder()
                             .setTitle('🔄 บันทึกการอัพเดทยศ')
                             .setColor("#3498db")
                             .addFields(
                                 { name: '👤 สมาชิก', value: `<@${member.id}> (${robloxName})`, inline: false },
-                                { name: '📊 Rank กลุ่มหลัก', value: mainGroup ? mainGroup.role.name : 'ไม่พบข้อมูล', inline: true },
-                                { name: '🟢 Role ที่เพิ่ม', value: addedRoles.join(', ') || 'ไม่มี', inline: false }
+                                { name: '📊 Rank ใน Roblox', value: mainGroup ? mainGroup.role.name : 'ไม่พบ', inline: true },
+                                { name: '🟢 Role ที่ได้รับ', value: addedRoles.length > 0 ? addedRoles.join(', ') : 'ไม่มี (เช็ค Logs)', inline: false }
                             )
                             .setTimestamp();
                         await logChannel.send({ embeds: [logEmbed] }).catch(() => {});
                     }
                     await interaction.editReply(`✅ ยืนยันตัวตนสำเร็จ: **${robloxName}**`);
                 } else {
-                    await interaction.editReply('❌ ไม่พบชื่อผู้ใช้นี้ในระบบ Roblox');
+                    await interaction.editReply('❌ ไม่พบชื่อผู้ใช้นี้ใน Roblox');
                 }
             } else {
                 await interaction.editReply('❌ รหัสยืนยันไม่ถูกต้อง');
