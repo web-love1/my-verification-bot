@@ -3,12 +3,12 @@ const axios = require('axios');
 const http = require('http');
 
 // --- 🛡️ 1. แก้ Port Timeout สำหรับ Render ---
-const PORT = process.env.PORT || 10000; // ใช้ 10000 เป็นค่าเริ่มต้นตามมาตรฐาน Render
+const PORT = process.env.PORT || 10000; // บังคับใช้พอร์ตที่ Render ชอบ
 http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.write('Bot is Online!');
+    res.write('Bot is Alive!'); // ส่งข้อความตอบกลับตัวปลุก
     res.end();
-}).listen(PORT, "0.0.0.0", () => {
+}).listen(PORT, "0.0.0.0");
     console.log(`✅ Web Server is running on port ${PORT}`);
 });
 const client = new Client({
