@@ -7,7 +7,9 @@ http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     res.write('Bot is Running!');
     res.end();
-}).listen(process.env.PORT || 3000);
+}).listen(10000, "0.0.0.0", () => {
+    console.log("✅ Web Server is running on port 10000");
+});
 
 const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMembers]
