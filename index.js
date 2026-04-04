@@ -136,27 +136,31 @@ if (response.data.status === "success") {
                         console.log("❌ ให้ยศพื้นฐานไม่ได้:", e.message);
                     }
 
-                    // 2. จัดการกลุ่มหลัก
+                    // 2. จัดการกลุ่มหลัก (ปรับปรุงใหม่)
                     const mainGroup = userGroups.find(g => g.group.id === MAIN_GROUP_ID);
                     if (mainGroup) {
-                        const robloxRoleName = mainGroup.role.name; // ชื่อยศจาก Roblox
-                        const setting = rankSettings[robloxRoleName]; // เทียบกับในโค้ด
+                        const robloxRoleName = mainGroup.role.name.trim();
+                        const setting = rankSettings[robloxRoleName];
                         
                         if (setting) {
-                            // บังคับยัดยศด้วย ID ทันที
                             try {
+                                // ให้ยศกลุ่มหลัก
                                 await member.roles.add(setting.roleId);
                                 addedRoles.push(`<@&${setting.roleId}>`);
+                                console.log(`✅ ให้ยศ ${robloxRoleName} แก่ ${robloxName} สำเร็จ`);
                             } catch (e) {
-                                console.log("❌ ให้ยศกลุ่มหลักไม่ได้:", e.message);
+                                console.log(`❌ ให้ยศกลุ่มหลักไม่ได้ (อาจเพราะยศบอทอยู่ต่ำกว่า): ${e.message}`);
                             }
 
-                            // เปลี่ยนชื่อ
+                            // เปลี่ยนชื่อ (เช็คสิทธิ์ก่อน)
                             if (member.manageable) {
-                                await member.setNickname(`${setting.prefix}${robloxName}`).catch(() => {});
+                                await member.setNickname(`${setting.prefix}${robloxName}`).catch(err => console.log("❌ เปลี่ยนชื่อไม่ได้:", err.message));
+                            } else {
+                                console.log("⚠️ บอทไม่มีสิทธิ์เปลี่ยนชื่อคนนี้");
                             }
                         } else {
-                            console.log(`⚠️ หาชื่อยศไม่เจอใน rankSettings: "${robloxRoleName}"`);
+                            // ถ้าหาชื่อไม่เจอจริงๆ มันจะพ่นชื่อที่ได้รับจาก Roblox ออกมาให้เราเห็น
+                            console.log(`⚠️ ไม่พบการตั้งค่าสำหรับชื่อยศ: "${robloxRoleName}" ใน rankSettings`);
                         }
                     }
 
