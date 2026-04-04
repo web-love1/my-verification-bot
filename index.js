@@ -82,7 +82,7 @@ const rankSettings = {
     "[OR-1] Private | พลทหาร": { prefix: "OR-1, PVT | ", roleId: "1469940048828043375" }
 };
 
-client.once('ready', () => { 
+client.once('clientReady', () => { 
     console.log(`✅ Logged in as ${client.user.tag}`); 
 });
 
